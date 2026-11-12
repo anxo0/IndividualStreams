@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/anxo0/IndividualStreams/releases/latest/download/IndividualStreams-Instalador.exe"><b>⬇️ Descargar el instalador</b></a>
+  <a href="https://github.com/anxo0/IndividualStreams/releases/latest"><b>⬇️ Descargar el instalador</b></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/anxo0/IndividualStreams/releases/latest">Novedades</a>
 </p>
@@ -22,7 +22,7 @@ Puedes abrir tantas transmisiones individuales como quieras. Al cerrar una venta
 
 ## Instalación (Windows)
 
-1. Descarga **[IndividualStreams-Instalador.exe](https://github.com/anxo0/IndividualStreams/releases/latest/download/IndividualStreams-Instalador.exe)**.
+1. Entra en la **[última versión](https://github.com/anxo0/IndividualStreams/releases/latest)** y descarga `IndividualStreams-Installer-v….exe`.
 2. Ábrelo y sigue el asistente. Si Windows avisa de que es una aplicación desconocida, pulsa "Más información" y "Ejecutar de todas formas".
 
 El instalador cierra Discord, instala el plugin y lo vuelve a abrir. No hace falta instalar nada más ni compilar, y sirve aunque ya tengas Vencord: tus ajustes y plugins se conservan.

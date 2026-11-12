@@ -73,14 +73,16 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
-                  ARCHIVOS="instalador/salida/IndividualStreams-Instalador.exe vencord/dist/patcher.js vencord/dist/preload.js vencord/dist/renderer.js vencord/dist/renderer.css"
+                  EXE="IndividualStreams-Installer-$VERSION.exe"
+                  ARCHIVOS="instalador/salida/$EXE vencord/dist/patcher.js vencord/dist/preload.js vencord/dist/renderer.js vencord/dist/renderer.css"
                   if gh release view "$VERSION" > /dev/null 2>&1; then
                       gh release upload "$VERSION" $ARCHIVOS --clobber
                   else
                       NOTAS="novedades/$VERSION.md"
                       [ -f "$NOTAS" ] || NOTAS=novedades/plantilla.md
+                      sed -e "s|{{EXE}}|$EXE|g" -e "s|{{VERSION}}|$VERSION|g" "$NOTAS" > notas.md
                       gh release create "$VERSION" $ARCHIVOS \
                           --title "IndividualStreams $VERSION" \
-                          --notes-file "$NOTAS" \
+                          --notes-file notas.md \
                           --latest
                   fi
