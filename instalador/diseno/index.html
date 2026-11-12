@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Instalador de IndividualStreams</title>
+<style>
+  /* La ventana del instalador es una ventana de transmision de Discord:
+     el titular es el "video", abajo va la barra de controles y el progreso es su linea de tiempo. */
+  :root {
+    --video: #000;
+    --controles: #111214;
+    --tinta: #fff;
+    --texto: #e3e5e8;
+    --suave: #9a9da3;
+    --icono: #b5bac1;
+    --rojo: #ed4245;
+    --pista: #2b2d31;
+    --globo: #232428;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { width: 840px; padding: 40px; background: #333; font-family: 'Segoe UI Variable Text', 'Segoe UI', sans-serif; color: var(--tinta); }
+  .ventana { position: relative; width: 760px; height: 440px; background: var(--video); overflow: hidden; margin-bottom: 40px; }
+
+  /* Chip del que transmite */
+  .chip { position: absolute; left: 24px; top: 20px; display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; }
+  .directo { padding: 4px 8px; border-radius: 4px; background: var(--rojo); font-size: 11px; font-weight: 700; letter-spacing: 0.02em; }
+
+  .cerrar { position: absolute; right: 14px; top: 14px; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--icono); background: var(--video); }
+  .cerrar svg { width: 12px; height: 12px; }
+  .cerrar.hover { background: #1e1f22; color: var(--tinta); }
+
+  /* El "video" */
+  .contenido { position: absolute; left: 40px; top: 108px; width: 470px; }
+  .titular { font-family: 'Segoe UI Variable Display', 'Segoe UI', sans-serif; font-size: 58px; line-height: 1; font-weight: 700; letter-spacing: -0.045em; }
+  .frase { margin: 22px 0 0 2px; width: 430px; font-size: 16px; line-height: 1.5; color: var(--texto); }
+
+  /* Lo que el plugin anade a Discord, tal cual */
+  .muestra { position: absolute; right: 40px; top: 116px; width: 230px; height: 90px; }
+  .globo { position: absolute; left: 88px; top: 0; transform: translateX(-50%); padding: 8px 13px; border-radius: 8px; background: var(--globo); font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .pico { position: absolute; left: 82px; top: 37px; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 6px solid var(--globo); }
+  .iconos { position: absolute; left: 19px; top: 54px; display: flex; gap: 24px; align-items: center; color: var(--icono); }
+  .iconos svg { width: 30px; height: 30px; }
+  .iconos .nuevo { color: var(--tinta); }
+
+  /* Barra de controles */
+  .controles { position: absolute; left: 0; right: 0; bottom: 0; height: 80px; background: var(--controles); }
+  .linea { position: absolute; left: 0; right: 0; top: 0; height: 4px; background: var(--pista); }
+  .avance { height: 4px; width: 38%; background: var(--tinta); }
+  .aviso { position: absolute; left: 40px; top: 30px; font-size: 13px; color: var(--suave); }
+
+  .boton { position: absolute; top: 18px; height: 44px; border-radius: 22px; display: grid; place-items: center; font-size: 15px; font-weight: 600; background: var(--controles); }
+  .principal { right: 40px; width: 148px; background: var(--tinta); color: #000; }
+  .principal.hover { background: #d9dbdf; }
+  .secundario { right: 196px; width: 104px; color: var(--texto); }
+  .secundario.hover { background: #1e1f22; color: var(--tinta); }
+  #instalando .secundario { right: 40px; }
+
+  /* Casilla */
+  .casilla { position: absolute; left: 40px; top: 28px; width: 300px; height: 24px; display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 600; background: var(--controles); }
+  .caja { width: 20px; height: 20px; border-radius: 6px; background: var(--tinta); display: grid; place-items: center; color: #000; }
+  .caja svg { width: 12px; height: 12px; }
+  .casilla.no .caja { background: transparent; border: 2px solid #5c5f66; }
+  .casilla.no .caja svg { display: none; }
+
+  /* Al dibujar el fondo, fuera todo lo que el instalador pone encima */
+  body.fondo [data-pieza]:not([data-pieza=pista]), body.fondo .cerrar, body.fondo .avance { visibility: hidden; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <g id="i1">
+      <path d="M15 2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0V4.41l-4.3 4.3a1 1 0 1 1-1.4-1.42L19.58 3H16a1 1 0 0 1-1-1Z"/>
+      <path d="M5 2a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-6a1 1 0 1 0-2 0v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6a1 1 0 1 0 0-2H5Z"/>
+      <path d="M12 9.5V18h-2v-5.9l-1.6 1-1-1.7 2.9-1.9z"/>
+    </g>
+    <g id="ventana">
+      <path d="M15 2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v6a1 1 0 1 1-2 0V4.41l-4.3 4.3a1 1 0 1 1-1.4-1.42L19.58 3H16a1 1 0 0 1-1-1Z"/>
+      <path d="M5 2a3 3 0 0 0-3 3v14a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-6a1 1 0 1 0-2 0v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h6a1 1 0 1 0 0-2H5Z"/>
+    </g>
+    <path id="volumen" d="M12 3.3a1 1 0 0 0-1.6-.8L5.7 6H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h2.7l4.7 3.5A1 1 0 0 0 12 20.7V3.3ZM15.1 7.6a1 1 0 0 1 1.4.1 6.9 6.9 0 0 1 0 8.6 1 1 0 1 1-1.5-1.3 4.9 4.9 0 0 0 0-6 1 1 0 0 1 .1-1.4Zm3.2-3a1 1 0 0 1 1.4 0 11 11 0 0 1 0 14.8 1 1 0 0 1-1.5-1.3 9 9 0 0 0 0-12.2 1 1 0 0 1 .1-1.3Z"/>
+    <path id="completa" d="M4 3a1 1 0 0 0-1 1v5a1 1 0 0 0 2 0V5h4a1 1 0 0 0 0-2H4Zm11 0a1 1 0 1 0 0 2h4v4a1 1 0 1 0 2 0V4a1 1 0 0 0-1-1h-5ZM5 15a1 1 0 1 0-2 0v5a1 1 0 0 0 1 1h5a1 1 0 1 0 0-2H5v-4Zm16 0a1 1 0 1 0-2 0v4h-4a1 1 0 1 0 0 2h5a1 1 0 0 0 1-1v-5Z"/>
+    <path id="x" d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+    <path id="check" d="M2 6.5l2.6 2.6L10 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </defs>
+</svg>
+
+<template id="comun">
+  <div class="chip"><span class="directo">EN DIRECTO</span>IndividualStreams</div>
+  <div class="cerrar"><svg viewBox="0 0 12 12"><use href="#x"/></svg></div>
+  <div class="muestra">
+    <div class="globo">Abrir individual</div>
+    <div class="pico"></div>
+    <div class="iconos">
+      <svg viewBox="0 0 24 24" fill="currentColor"><use href="#volumen"/></svg>
+      <svg class="nuevo" viewBox="0 0 24 24" fill="currentColor"><use href="#i1"/></svg>
+      <svg viewBox="0 0 24 24" fill="currentColor"><use href="#ventana"/></svg>
+      <svg viewBox="0 0 24 24" fill="currentColor"><use href="#completa"/></svg>
+    </div>
+  </div>
+</template>
+
+<div class="ventana" id="bienvenida">
+  <div class="contenido">
+    <div class="titular">Una transmisión,<br>una ventana.</div>
+    <p class="frase">Pon a cada amigo en una pantalla distinta, con un botón nuevo junto a "Abrir en ventana".</p>
+  </div>
+  <div class="controles">
+    <div class="aviso">Discord se cerrará un momento y volverá a abrirse.</div>
+    <div class="boton secundario" data-pieza="cancelar">Cancelar</div>
+    <div class="boton principal" data-pieza="instalar">Instalar</div>
+  </div>
+</div>
+
+<div class="ventana" id="instalando">
+  <div class="contenido">
+    <div class="titular">Instalando…</div>
+    <p class="frase">Tarda unos segundos. Discord se cerrará y volverá a abrirse solo, con el plugin activado.</p>
+  </div>
+  <div class="controles">
+    <div class="linea" data-pieza="pista"><div class="avance"></div></div>
+    <div class="boton secundario" data-pieza="cancelar-instalando">Cancelar</div>
+  </div>
+</div>
+
+<div class="ventana" id="listo">
+  <div class="contenido">
+    <div class="titular">Todo listo.</div>
+    <p class="frase">En una llamada, pulsa el botón del 1 sobre la transmisión que quieras, o haz clic derecho en ella y elige "Abrir individual".</p>
+  </div>
+  <div class="controles">
+    <div class="casilla" data-pieza="casilla"><div class="caja"><svg viewBox="0 0 12 12"><use href="#check"/></svg></div>Abrir Discord ahora</div>
+    <div class="boton principal" data-pieza="terminar">Terminar</div>
+  </div>
+</div>
+
+<script>
+  for (const v of document.querySelectorAll('.ventana'))
+    v.insertAdjacentHTML('beforeend', document.getElementById('comun').innerHTML)
+</script>
+</body>
+</html>
