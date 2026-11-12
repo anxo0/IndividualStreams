@@ -245,7 +245,11 @@ const PopoutVolume = ErrorBoundary.wrap(({ userId, idle, TileButton, hideWhenIna
                 tooltipText={open ? null : muted ? "Activar sonido" : "Silenciar"}
                 hideWhenInactive={hideWhenInactive && !open}
                 idle={idle}
-                onClick={() => AudioActions.toggleLocalMute(userId, "stream")}
+                onClick={(e: React.MouseEvent<HTMLElement>) => {
+                    // Si el botón se queda con el foco, Discord deja su aviso fijo hasta hacer clic en otro sitio
+                    e.currentTarget?.blur?.();
+                    AudioActions.toggleLocalMute(userId, "stream");
+                }}
             />
         </div>
     );
