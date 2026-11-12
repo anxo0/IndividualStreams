@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/anxo0/IndividualStreams/releases/latest/download/instalar.bat"><b>📥 Descargar el instalador</b></a>
+  <a href="https://github.com/anxo0/IndividualStreams/releases/latest/download/IndividualStreams-Instalador.exe"><b>⬇️ Descargar el instalador</b></a>
   &nbsp;·&nbsp;
   <a href="https://github.com/anxo0/IndividualStreams/releases/latest">Novedades</a>
 </p>
@@ -22,17 +22,18 @@ Puedes abrir tantas transmisiones individuales como quieras. Al cerrar una venta
 
 ## Instalación (Windows)
 
-1. Descarga el **[instalador](https://github.com/anxo0/IndividualStreams/releases/latest/download/instalar.bat)**.
-2. Haz doble clic en `instalar.bat`. Si Windows avisa de que es un archivo desconocido, pulsa "Más información" y "Ejecutar de todas formas".
-3. Cuando lo pida, pulsa Enter: cierra Discord, instala el plugin y vuelve a abrir Discord.
+1. Descarga **[IndividualStreams-Instalador.exe](https://github.com/anxo0/IndividualStreams/releases/latest/download/IndividualStreams-Instalador.exe)**.
+2. Ábrelo y sigue el asistente. Si Windows avisa de que es una aplicación desconocida, pulsa "Más información" y "Ejecutar de todas formas".
 
-No hace falta instalar nada más ni compilar. Sirve aunque ya tengas Vencord: tus ajustes y plugins se conservan.
+El instalador cierra Discord, instala el plugin y lo vuelve a abrir. No hace falta instalar nada más ni compilar, y sirve aunque ya tengas Vencord: tus ajustes y plugins se conservan.
+
+Para quitarlo, desinstálalo desde Aplicaciones de Windows. Discord se queda con Vencord normal.
 
 ## Actualizaciones
 
 Se actualiza solo: Vencord comprueba este repositorio y descarga las versiones nuevas desde Discord.
 
-Si algún día deja de funcionar, vuelve a ejecutar `instalar.bat`.
+Si algún día deja de funcionar, vuelve a ejecutar el instalador.
 
 ## Uso
 

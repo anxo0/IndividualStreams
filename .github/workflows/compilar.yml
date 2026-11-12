@@ -11,7 +11,10 @@ permissions:
 
 jobs:
     publicar:
-        runs-on: ubuntu-latest
+        runs-on: windows-latest
+        defaults:
+            run:
+                shell: bash
 
         steps:
             - name: Descargar el plugin
@@ -44,7 +47,7 @@ jobs:
                   cache: pnpm
                   cache-dependency-path: vencord/pnpm-lock.yaml
 
-            - name: Compilar
+            - name: Compilar Vencord con el plugin
               working-directory: vencord
               env:
                   # El actualizador de Vencord buscara las versiones nuevas en este repositorio
@@ -57,11 +60,20 @@ jobs:
                   pnpm install --frozen-lockfile
                   pnpm build --standalone
 
+            - name: Crear el instalador
+              shell: pwsh
+              run: |
+                  $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+                  if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress }
+                  Invoke-WebRequest "https://github.com/Vencord/Installer/releases/latest/download/VencordInstallerCli.exe" -OutFile VencordInstallerCli.exe
+                  & $iscc "/DMyVersion=$($env:VERSION.TrimStart('v'))" "/DDistDir=$PWD\vencord\dist" "/DCliPath=$PWD\VencordInstallerCli.exe" instalador\IndividualStreams.iss
+                  if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
             - name: Publicar
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
-                  ARCHIVOS="vencord/dist/patcher.js vencord/dist/preload.js vencord/dist/renderer.js vencord/dist/renderer.css instalar.bat"
+                  ARCHIVOS="instalador/salida/IndividualStreams-Instalador.exe vencord/dist/patcher.js vencord/dist/preload.js vencord/dist/renderer.js vencord/dist/renderer.css"
                   if gh release view "$VERSION" > /dev/null 2>&1; then
                       gh release upload "$VERSION" $ARCHIVOS --clobber
                   else
