@@ -7,13 +7,16 @@
 import { NavContextMenuPatchCallback } from "@api/ContextMenu";
 import ErrorBoundary from "@components/ErrorBoundary";
 import definePlugin from "@utils/types";
-import { findByPropsLazy, findComponentByCodeLazy, findExportedComponentLazy, findStoreLazy } from "@webpack";
-import { ApplicationStreamingStore, FluxDispatcher, Menu, PopoutWindowStore, React, showToast, UserStore } from "@webpack/common";
+import { findByPropsLazy, findExportedComponentLazy, findStoreLazy } from "@webpack";
+import { ApplicationStreamingStore, FluxDispatcher, MediaEngineStore, Menu, React, showToast, UserStore, useStateFromStores } from "@webpack/common";
 
 const ChannelRTCStore = findStoreLazy("ChannelRTCStore");
-const VolumeControl = findComponentByCodeLazy("currentVolume:", "sliderClassName:");
+const AudioActions = findByPropsLazy("toggleLocalMute", "setLocalVolume");
 const WindowLaunchIconModule = findByPropsLazy("WindowLaunchIcon");
 const FullscreenEnterIcon = findExportedComponentLazy("FullscreenEnterIcon");
+const VoiceNormalIcon = findExportedComponentLazy("VoiceNormalIcon");
+const VoiceLowIcon = findExportedComponentLazy("VoiceLowIcon");
+const VoiceXIcon = findExportedComponentLazy("VoiceXIcon");
 
 const PARTICIPANT_TYPE_STREAM = 0;
 
@@ -72,20 +75,100 @@ const BarButton = ErrorBoundary.wrap(({ PopoutButton, channelId, participantId, 
     />
 ), { noop: true });
 
-const PopoutVolume = ErrorBoundary.wrap(({ channelId, participantId }: { channelId: string; participantId: string; }) => {
-    const participant = ChannelRTCStore.getParticipant(channelId, participantId);
-    const userId = participant?.user?.id;
-    if (participant?.type !== PARTICIPANT_TYPE_STREAM || !userId || userId === UserStore.getCurrentUser()?.id) return null;
+// Discord guarda el volumen como amplitud y lo muestra en una escala perceptiva (0 a 200 en escritorio)
+const MAX_VOLUME = IS_DISCORD_DESKTOP ? 200 : 100;
+const toSlider = (v: number) => v === 0 ? 0 : (v < 100 ? Math.pow(v / 100, 1 / 2.8) : 20 * Math.log10(v / 100) / 6 + 1) * 100;
+const toAmplitude = (v: number) => v === 0 ? 0 : (v < 100 ? Math.pow(v / 100, 2.8) : Math.pow(10, (v / 100 - 1) * 6 / 20)) * 100;
 
-    const popoutWindow = PopoutWindowStore.getWindow(`DISCORD_CALL_TILE_POPOUT_${channelId}_${participantId}`);
+// Deslizador vertical con el aspecto del de Discord: barra fina, relleno azul desde abajo y bolita
+function VolumeSlider({ value, onChange }: { value: number; onChange(value: number): void; }) {
+    const trackRef = React.useRef<HTMLDivElement>(null);
+    const percent = (value / MAX_VOLUME) * 100;
+
+    const update = (clientY: number) => {
+        const rect = trackRef.current?.getBoundingClientRect();
+        if (!rect) return;
+        const ratio = Math.max(0, Math.min(1, (rect.bottom - clientY) / rect.height));
+        onChange(Math.round(ratio * MAX_VOLUME));
+    };
 
     return (
         <div
-            style={{ display: "flex", alignItems: "center", color: "#fff" }}
+            role="slider"
+            aria-label="Volumen de la transmisión"
+            aria-valuemin={0}
+            aria-valuemax={MAX_VOLUME}
+            aria-valuenow={value}
+            aria-valuetext={`${value}%`}
+            tabIndex={0}
+            onPointerDown={e => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); update(e.clientY); }}
+            onPointerMove={e => { if (e.currentTarget.hasPointerCapture(e.pointerId)) update(e.clientY); }}
+            onKeyDown={e => {
+                const step = e.key === "ArrowUp" || e.key === "ArrowRight" ? 5 : e.key === "ArrowDown" || e.key === "ArrowLeft" ? -5 : 0;
+                if (step) { e.preventDefault(); onChange(Math.max(0, Math.min(MAX_VOLUME, value + step))); }
+            }}
+            style={{
+                display: "flex", justifyContent: "center", width: 24, padding: "12px 0",
+                borderRadius: 12, background: "rgba(0, 0, 0, 0.6)", cursor: "pointer", outline: "none", touchAction: "none"
+            }}
+        >
+            <div ref={trackRef} style={{ position: "relative", width: 4, height: 96, borderRadius: 2, background: "#4e5058" }}>
+                <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: `${percent}%`, borderRadius: 2, background: "#5865f2" }} />
+                <div style={{
+                    position: "absolute", left: "50%", bottom: `${percent}%`, width: 10, height: 10,
+                    borderRadius: "50%", background: "#5865f2", transform: "translate(-50%, 50%)"
+                }} />
+            </div>
+        </div>
+    );
+}
+
+const PopoutVolume = ErrorBoundary.wrap(({ userId, idle, TileButton }: { userId: string; idle: boolean; TileButton: any; }) => {
+    const [open, setOpen] = React.useState(false);
+    const closeTimer = React.useRef<any>(null);
+
+    const { volume, muted } = useStateFromStores([MediaEngineStore], () => ({
+        volume: toSlider((MediaEngineStore as any).getLocalVolume(userId, "stream")),
+        muted: (MediaEngineStore as any).isLocalMute(userId, "stream") as boolean
+    }));
+
+    const shown = muted ? 0 : Math.round(volume);
+    const Icon = shown === 0 ? VoiceXIcon : shown < MAX_VOLUME / 2 ? VoiceLowIcon : VoiceNormalIcon;
+
+    const setVolume = (value: number) => {
+        value = Math.max(0, Math.min(MAX_VOLUME, value));
+        if (value > 0 && muted) AudioActions.toggleLocalMute(userId, "stream");
+        AudioActions.setLocalVolume(userId, toAmplitude(value), "stream");
+    };
+
+    const show = () => { clearTimeout(closeTimer.current); setOpen(true); };
+    const hide = () => { clearTimeout(closeTimer.current); closeTimer.current = setTimeout(() => setOpen(false), 200); };
+    React.useEffect(() => () => clearTimeout(closeTimer.current), []);
+
+    return (
+        <div
+            style={{ position: "relative", display: "flex", pointerEvents: "auto" }}
+            onMouseEnter={show}
+            onMouseLeave={hide}
             onClick={e => e.stopPropagation()}
             onDoubleClick={e => e.stopPropagation()}
+            onWheel={e => setVolume(shown + (e.deltaY < 0 ? 5 : -5))}
         >
-            <VolumeControl userId={userId} context="stream" currentWindow={popoutWindow ?? window} />
+            {open && !idle && (
+                // El hueco de abajo (paddingBottom) mantiene el deslizador abierto al subir el ratón desde el botón
+                // pointerEvents: la barra de controles de Discord desactiva el ratón fuera de sus botones
+                <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", paddingBottom: 6, pointerEvents: "auto", zIndex: 1 }}>
+                    <VolumeSlider value={shown} onChange={setVolume} />
+                </div>
+            )}
+            <TileButton
+                icon={Icon}
+                // Sin aviso mientras el deslizador está abierto: se pondría encima y lo taparía
+                tooltipText={open ? null : muted ? "Activar sonido" : "Silenciar"}
+                hideWhenInactive={false}
+                idle={idle}
+                onClick={() => AudioActions.toggleLocalMute(userId, "stream")}
+            />
         </div>
     );
 }, { noop: true });
@@ -147,8 +230,13 @@ export default definePlugin({
 
     pushPopoutControls(buttons: React.ReactNode[], { channelId, participantId, idle, TileButton }: any) {
         try {
+            // Volumen solo para transmisiones ajenas: la tuya no se oye en tu propio Discord
+            const participant = ChannelRTCStore.getParticipant(channelId, participantId);
+            const userId = participant?.user?.id;
+            if (participant?.type === PARTICIPANT_TYPE_STREAM && userId && userId !== UserStore.getCurrentUser()?.id)
+                buttons.push(<PopoutVolume key="vc-individual-volume" userId={userId} idle={idle} TileButton={TileButton} />);
+
             buttons.push(
-                <PopoutVolume key="vc-individual-volume" channelId={channelId} participantId={participantId} />,
                 <TileButton
                     key="vc-individual-fullscreen"
                     icon={FullscreenEnterIcon}
