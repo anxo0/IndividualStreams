@@ -53,4 +53,4 @@ Hecho por **anxo0**.
 
 ## Licencia
 
-[GPL-3.0](LICENSE), igual que Vencord.
+Software libre bajo la licencia [GPL-3.0](LICENSE): puedes usarlo, modificarlo y compartirlo, siempre que lo que compartas mantenga esta licencia y su código fuente.
