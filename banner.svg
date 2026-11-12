@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" width="1280" height="400">
+  <defs>
+    <linearGradient id="fondo" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0c0d11"/>
+      <stop offset="1" stop-color="#16171e"/>
+    </linearGradient>
+    <radialGradient id="brillo" cx="0.78" cy="0.5" r="0.55">
+      <stop offset="0" stop-color="#5865f2" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#5865f2" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="pantalla1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5865f2"/>
+      <stop offset="1" stop-color="#9b59f6"/>
+    </linearGradient>
+    <linearGradient id="pantalla2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eb459e"/>
+      <stop offset="1" stop-color="#f0883e"/>
+    </linearGradient>
+    <pattern id="puntos" width="24" height="24" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.2" fill="#ffffff" fill-opacity="0.05"/>
+    </pattern>
+  </defs>
+
+  <rect width="1280" height="400" fill="url(#fondo)"/>
+  <rect width="1280" height="400" fill="url(#puntos)"/>
+  <rect width="1280" height="400" fill="url(#brillo)"/>
+
+  <!-- Icono -->
+  <g transform="translate(88 132) scale(0.27)" fill="none" stroke="#fff" stroke-width="34" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M236 132H140a44 44 0 0 0-44 44v196a44 44 0 0 0 44 44h196a44 44 0 0 0 44-44V276"/>
+    <path d="M276 236L408 104"/>
+    <path d="M314 104h94v94"/>
+    <path d="M168 258l44-28v140"/>
+  </g>
+
+  <!-- Textos -->
+  <g font-family="'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif">
+    <text x="232" y="188" fill="#ffffff" font-size="60" font-weight="700" letter-spacing="-1">IndividualStreams</text>
+    <text x="234" y="232" fill="#b5bac1" font-size="24">Cada transmisión de Discord en su propia ventana</text>
+
+    <rect x="234" y="262" width="196" height="36" rx="18" fill="#5865f2" fill-opacity="0.18" stroke="#5865f2" stroke-opacity="0.6"/>
+    <text x="332" y="286" fill="#c9cdfb" font-size="16" font-weight="600" text-anchor="middle">Plugin para Vencord</text>
+    <rect x="442" y="262" width="118" height="36" rx="18" fill="#ffffff" fill-opacity="0.06" stroke="#ffffff" stroke-opacity="0.25"/>
+    <text x="501" y="286" fill="#dbdee1" font-size="16" font-weight="600" text-anchor="middle">por anxo0</text>
+  </g>
+
+  <!-- Monitor 1 -->
+  <g transform="translate(838 118)">
+    <rect width="176" height="112" rx="10" fill="#1e1f22" stroke="#3f4147" stroke-width="3"/>
+    <rect x="8" y="8" width="160" height="96" rx="5" fill="url(#pantalla1)"/>
+    <circle cx="26" cy="88" r="7" fill="#fff" fill-opacity="0.9"/>
+    <rect x="38" y="84" width="46" height="8" rx="4" fill="#fff" fill-opacity="0.7"/>
+    <path d="M78 42v28l24-14z" fill="#fff" fill-opacity="0.85"/>
+    <text x="152" y="30" fill="#fff" font-family="'Segoe UI',sans-serif" font-size="18" font-weight="700" text-anchor="middle">1</text>
+    <rect x="76" y="112" width="24" height="22" fill="#2b2d31"/>
+    <rect x="52" y="134" width="72" height="8" rx="4" fill="#2b2d31"/>
+  </g>
+
+  <!-- Monitor 2 -->
+  <g transform="translate(1040 118)">
+    <rect width="176" height="112" rx="10" fill="#1e1f22" stroke="#3f4147" stroke-width="3"/>
+    <rect x="8" y="8" width="160" height="96" rx="5" fill="url(#pantalla2)"/>
+    <circle cx="26" cy="88" r="7" fill="#fff" fill-opacity="0.9"/>
+    <rect x="38" y="84" width="58" height="8" rx="4" fill="#fff" fill-opacity="0.7"/>
+    <path d="M78 42v28l24-14z" fill="#fff" fill-opacity="0.85"/>
+    <text x="152" y="30" fill="#fff" font-family="'Segoe UI',sans-serif" font-size="18" font-weight="700" text-anchor="middle">2</text>
+    <rect x="76" y="112" width="24" height="22" fill="#2b2d31"/>
+    <rect x="52" y="134" width="72" height="8" rx="4" fill="#2b2d31"/>
+  </g>
+</svg>

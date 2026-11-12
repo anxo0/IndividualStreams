@@ -1,24 +1,33 @@
-name: Compilar
+name: Publicar version
 on:
     push:
-        branches:
-            - main
-        paths:
-            - individualStreams/**
-            - instalar.bat
-            - .github/workflows/compilar.yml
+        tags:
+            - "v[0-9]*"
+    # Para recompilar la ultima version con el Vencord mas reciente
     workflow_dispatch:
 
 permissions:
     contents: write
 
 jobs:
-    compilar:
+    publicar:
         runs-on: ubuntu-latest
 
         steps:
             - name: Descargar el plugin
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+              with:
+                  fetch-depth: 0
+
+            - name: Elegir la version
+              run: |
+                  if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+                      VERSION="$GITHUB_REF_NAME"
+                  else
+                      VERSION=$(git describe --tags --abbrev=0 --match "v[0-9]*")
+                      git checkout "$VERSION"
+                  fi
+                  echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
             - name: Descargar Vencord
               run: git clone --depth 1 https://github.com/Vendicated/Vencord.git vencord
@@ -35,47 +44,31 @@ jobs:
                   cache: pnpm
                   cache-dependency-path: vencord/pnpm-lock.yaml
 
-            - name: Calcular la version
-              run: |
-                  PLUGIN_HASH=$(git rev-parse --short=7 HEAD)
-                  VENCORD_COMMIT=$(git -C vencord rev-parse --short=7 HEAD)
-                  echo "PLUGIN_HASH=$PLUGIN_HASH" >> "$GITHUB_ENV"
-                  echo "TAG=v-$PLUGIN_HASH-$VENCORD_COMMIT" >> "$GITHUB_ENV"
-
-            - name: Comprobar si ya existe
-              id: existe
-              env:
-                  GH_TOKEN: ${{ github.token }}
-              run: |
-                  if gh release view "$TAG" > /dev/null 2>&1; then
-                      echo "si=true" >> "$GITHUB_OUTPUT"
-                  fi
-
             - name: Compilar
-              if: steps.existe.outputs.si != 'true'
               working-directory: vencord
               env:
                   # El actualizador de Vencord buscara las versiones nuevas en este repositorio
+                  # y comparara la suya con la ultima palabra del titulo de la version
                   VENCORD_REMOTE: ${{ github.repository }}
-                  VENCORD_HASH: ${{ env.PLUGIN_HASH }}
+                  VENCORD_HASH: ${{ env.VERSION }}
               run: |
                   mkdir -p src/userplugins
                   cp -r ../individualStreams src/userplugins/
                   pnpm install --frozen-lockfile
                   pnpm build --standalone
 
-            - name: Publicar la version
-              if: steps.existe.outputs.si != 'true'
+            - name: Publicar
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
-                  gh release create "$TAG" \
-                      vencord/dist/patcher.js \
-                      vencord/dist/preload.js \
-                      vencord/dist/renderer.js \
-                      vencord/dist/renderer.css \
-                      instalar.bat \
-                      --target "$GITHUB_SHA" \
-                      --title "IndividualStreams $PLUGIN_HASH" \
-                      --notes "Para instalarlo o actualizarlo, descarga instalar.bat y haz doble clic." \
-                      --latest
+                  ARCHIVOS="vencord/dist/patcher.js vencord/dist/preload.js vencord/dist/renderer.js vencord/dist/renderer.css instalar.bat"
+                  if gh release view "$VERSION" > /dev/null 2>&1; then
+                      gh release upload "$VERSION" $ARCHIVOS --clobber
+                  else
+                      NOTAS="novedades/$VERSION.md"
+                      [ -f "$NOTAS" ] || NOTAS=novedades/plantilla.md
+                      gh release create "$VERSION" $ARCHIVOS \
+                          --title "IndividualStreams $VERSION" \
+                          --notes-file "$NOTAS" \
+                          --latest
+                  fi

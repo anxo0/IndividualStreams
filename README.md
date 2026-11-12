@@ -1,8 +1,12 @@
 <p align="center">
-  <img src="icono.png" width="120" alt="Logo de IndividualStreams">
+  <img src="banner.png" alt="IndividualStreams: cada transmisión de Discord en su propia ventana">
 </p>
 
-# IndividualStreams
+<p align="center">
+  <a href="https://github.com/anxo0/IndividualStreams/releases/latest/download/instalar.bat"><b>📥 Descargar el instalador</b></a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/anxo0/IndividualStreams/releases/latest">Novedades</a>
+</p>
 
 Plugin para [Vencord](https://vencord.dev) que abre cada transmisión de Discord en su propia ventana, para poner una en cada pantalla.
 
