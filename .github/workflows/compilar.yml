@@ -1,13 +1,26 @@
 name: Publicar version
 on:
+    # Version nueva del plugin: al subir una etiqueta vX.Y.Z
     push:
         tags:
             - "v[0-9]*"
-    # Para recompilar la ultima version con el Vencord mas reciente
+    # Seguir a Vencord: cada dia, si Vencord ha cambiado, se publica la siguiente version con el
+    # plugin de la ultima publicada, para que nadie se quede atras respecto al Vencord oficial
+    schedule:
+        - cron: "17 5 * * *"
     workflow_dispatch:
+        inputs:
+            forzar:
+                description: "Publicar aunque Vencord no haya cambiado"
+                type: boolean
+                default: false
 
 permissions:
     contents: write
+
+concurrency:
+    group: publicar
+    cancel-in-progress: false
 
 jobs:
     publicar:
@@ -17,30 +30,50 @@ jobs:
                 shell: bash
 
         steps:
-            - name: Descargar el plugin
+            - name: Descargar el repositorio
               uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
                   fetch-depth: 0
 
+            - name: Descargar Vencord
+              run: |
+                  git clone --depth 1 https://github.com/Vendicated/Vencord.git vencord
+                  echo "VENCORD=$(git -C vencord rev-parse --short=7 HEAD)" >> "$GITHUB_ENV"
+
             - name: Elegir la version
+              id: version
               run: |
                   if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-                      VERSION="$GITHUB_REF_NAME"
-                  else
-                      VERSION=$(git describe --tags --abbrev=0 --match "v[0-9]*")
-                      git checkout "$VERSION"
+                      echo "VERSION=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+                      echo "PLUGIN=individualStreams" >> "$GITHUB_ENV"
+                      echo "NOTAS=novedades/$GITHUB_REF_NAME.md" >> "$GITHUB_ENV"
+                      exit 0
                   fi
-                  echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-            - name: Descargar Vencord
-              run: git clone --depth 1 https://github.com/Vendicated/Vencord.git vencord
+                  ANTERIOR=$(cat vencord.txt 2>/dev/null || true)
+                  if [ "$VENCORD" = "$ANTERIOR" ] && [ "${{ inputs.forzar }}" != "true" ]; then
+                      echo "Vencord sigue en $VENCORD: no hay nada que publicar"
+                      echo "saltar=true" >> "$GITHUB_OUTPUT"
+                      exit 0
+                  fi
+
+                  ULTIMA=$(git describe --tags --abbrev=0 --match "v[0-9]*")
+                  IFS=. read -r MAYOR MENOR PARCHE <<< "${ULTIMA#v}"
+                  echo "VERSION=v$MAYOR.$MENOR.$((PARCHE + 1))" >> "$GITHUB_ENV"
+                  echo "NOTAS=novedades/vencord.md" >> "$GITHUB_ENV"
+                  # El plugin tal como se publico en la ultima version, no lo que haya a medias en main
+                  mkdir publicado
+                  git archive "$ULTIMA" individualStreams | tar -x -C publicado
+                  echo "PLUGIN=publicado/individualStreams" >> "$GITHUB_ENV"
 
             - name: Preparar pnpm
+              if: steps.version.outputs.saltar != 'true'
               uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
               with:
                   package_json_file: vencord/package.json
 
             - name: Preparar Node.js
+              if: steps.version.outputs.saltar != 'true'
               uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
               with:
                   node-version: 24
@@ -48,6 +81,7 @@ jobs:
                   cache-dependency-path: vencord/pnpm-lock.yaml
 
             - name: Compilar Vencord con el plugin
+              if: steps.version.outputs.saltar != 'true'
               working-directory: vencord
               env:
                   # El actualizador de Vencord buscara las versiones nuevas en este repositorio
@@ -56,11 +90,12 @@ jobs:
                   VENCORD_HASH: ${{ env.VERSION }}
               run: |
                   mkdir -p src/userplugins
-                  cp -r ../individualStreams src/userplugins/
+                  cp -r "../$PLUGIN" src/userplugins/
                   pnpm install --frozen-lockfile
                   pnpm build --standalone
 
             - name: Crear el instalador
+              if: steps.version.outputs.saltar != 'true'
               shell: pwsh
               run: |
                   ./instalador/diseno/convertir.ps1
@@ -70,19 +105,39 @@ jobs:
                   & $iscc "/DMyVersion=$($env:VERSION.TrimStart('v'))" "/DDistDir=$PWD\vencord\dist" "/DCliPath=$PWD\VencordInstallerCli.exe" instalador\IndividualStreams.iss
                   if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+            # Apunta en main con que Vencord se ha compilado. En las versiones automaticas este commit
+            # es ademas el que hace que el actualizador de Vencord vea que hay algo nuevo.
+            - name: Apuntar la version de Vencord
+              if: steps.version.outputs.saltar != 'true'
+              run: |
+                  git config user.name "anxo0"
+                  git config user.email "185729422+anxo0@users.noreply.github.com"
+                  git fetch -q origin main
+                  git checkout -q -B main origin/main
+                  echo "$VENCORD" > vencord.txt
+                  if ! git diff --quiet -- vencord.txt 2>/dev/null || ! git ls-files --error-unmatch vencord.txt > /dev/null 2>&1; then
+                      git add vencord.txt
+                      git commit -q -m "Compilado con Vencord $VENCORD"
+                      git push -q origin main
+                  fi
+                  echo "COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
             - name: Publicar
+              if: steps.version.outputs.saltar != 'true'
               env:
                   GH_TOKEN: ${{ github.token }}
               run: |
                   EXE="IndividualStreams-Installer-$VERSION.exe"
                   ARCHIVOS="instalador/salida/$EXE vencord/dist/patcher.js vencord/dist/preload.js vencord/dist/renderer.js vencord/dist/renderer.css"
+                  [ -f "$NOTAS" ] || NOTAS=novedades/plantilla.md
                   if gh release view "$VERSION" > /dev/null 2>&1; then
                       gh release upload "$VERSION" $ARCHIVOS --clobber
                   else
-                      NOTAS="novedades/$VERSION.md"
-                      [ -f "$NOTAS" ] || NOTAS=novedades/plantilla.md
-                      sed -e "s|{{EXE}}|$EXE|g" -e "s|{{VERSION}}|$VERSION|g" "$NOTAS" > notas.md
+                      sed -e "s|{{EXE}}|$EXE|g" -e "s|{{VERSION}}|$VERSION|g" -e "s|{{VENCORD}}|$VENCORD|g" "$NOTAS" > notas.md
+                      # En las versiones automaticas la etiqueta nueva se crea en el commit de vencord.txt
+                      if [ "$GITHUB_REF_TYPE" = "tag" ]; then DESTINO="$GITHUB_SHA"; else DESTINO="$COMMIT"; fi
                       gh release create "$VERSION" $ARCHIVOS \
+                          --target "$DESTINO" \
                           --title "IndividualStreams $VERSION" \
                           --notes-file notas.md \
                           --latest

@@ -31,7 +31,9 @@ Para dejar de usarlo, desactívalo en Ajustes, Vencord, Plugins, como cualquier 
 
 ## Actualizaciones
 
-Se actualiza solo: Vencord comprueba este repositorio y descarga las versiones nuevas desde Discord.
+Se actualiza solo: el actualizador de Vencord comprueba este repositorio al abrir Discord y descarga las versiones nuevas.
+
+También va a la par del Vencord oficial: cada día se comprueba si Vencord ha cambiado y, si es así, se publica una versión nueva con el mismo plugin y el Vencord más reciente.
 
 Si algún día deja de funcionar, vuelve a ejecutar el instalador.
 
