@@ -1,118 +1,67 @@
 @echo off
-setlocal
 title Instalador de IndividualStreams
-
-if not defined REPO set "REPO=https://github.com/anxo0/IndividualStreams.git"
-if not defined PLUGIN_REPO set "PLUGIN_REPO=%USERPROFILE%\IndividualStreams"
-if not defined VENCORD_DEST set "VENCORD_DEST=%USERPROFILE%\VencordIndividualStreams"
-
-echo.
-echo  === Instalador de IndividualStreams (por anxo0) ===
-echo.
-
-set "FALTA="
-
-where git >nul 2>nul
-if errorlevel 1 (
-    echo  Instalando Git...
-    winget install --id Git.Git -e --accept-source-agreements --accept-package-agreements
-    set "FALTA=1"
-)
-
-where node >nul 2>nul
-if errorlevel 1 (
-    echo  Instalando Node.js...
-    winget install --id OpenJS.NodeJS.LTS -e --accept-source-agreements --accept-package-agreements
-    set "FALTA=1"
-)
-
-if defined FALTA (
-    echo.
-    echo  Se han instalado programas necesarios.
-    echo  CIERRA esta ventana y vuelve a hacer doble clic en instalar.bat
-    goto :fin
-)
-
-where pnpm >nul 2>nul
-if errorlevel 1 (
-    echo  Instalando pnpm...
-    call npm install -g pnpm
-    if errorlevel 1 goto :error
-)
-
-echo  Descargando la ultima version del plugin...
-if exist "%PLUGIN_REPO%\.git" (
-    git -C "%PLUGIN_REPO%" fetch --depth 1 origin
-    if not errorlevel 1 git -C "%PLUGIN_REPO%" reset --hard FETCH_HEAD
-) else (
-    git clone --depth 1 "%REPO%" "%PLUGIN_REPO%"
-)
-
-set "PLUGIN=%PLUGIN_REPO%\individualStreams"
-if not exist "%PLUGIN%\index.tsx" (
-    echo  No se ha podido descargar. Uso la copia que viene junto a este archivo.
-    set "PLUGIN=%~dp0individualStreams"
-)
-if not exist "%PLUGIN%\index.tsx" (
-    echo  ERROR: no encuentro el plugin.
-    goto :error
-)
-
-if exist "%VENCORD_DEST%\.git" (
-    echo  Actualizando Vencord...
-    git -C "%VENCORD_DEST%" fetch --depth 1 origin
-    if not errorlevel 1 git -C "%VENCORD_DEST%" reset --hard FETCH_HEAD
-) else (
-    echo  Descargando Vencord...
-    git clone --depth 1 https://github.com/Vendicated/Vencord.git "%VENCORD_DEST%"
-)
-if errorlevel 1 goto :error
-
-echo  Copiando el plugin...
-if exist "%VENCORD_DEST%\src\userplugins\individualStreams" rmdir /S /Q "%VENCORD_DEST%\src\userplugins\individualStreams"
-xcopy /E /I /Y "%PLUGIN%" "%VENCORD_DEST%\src\userplugins\individualStreams" >nul
-if errorlevel 1 goto :error
-
-cd /d "%VENCORD_DEST%"
-
-echo  Instalando dependencias (puede tardar un par de minutos)...
-call pnpm install --frozen-lockfile
-if errorlevel 1 goto :error
-
-echo  Compilando...
-call pnpm build
-if errorlevel 1 goto :error
-
-if defined SOLO_COMPILAR (
-    echo  Compilado. No se toca Discord.
-    goto :fin
-)
-
-echo.
-echo  Ahora se va a cerrar Discord para instalar el plugin.
-pause
-
-taskkill /F /IM Discord.exe >nul 2>nul
-
-node scripts\runInstaller.mjs -- --install -branch stable
-if errorlevel 1 goto :error
-
-node -e "const fs=require('fs');const p=process.env.APPDATA+'/Vencord/settings/settings.json';if(fs.existsSync(p)){const s=JSON.parse(fs.readFileSync(p,'utf8'));s.plugins=s.plugins||{};s.plugins.IndividualStreams=Object.assign({},s.plugins.IndividualStreams,{enabled:true});fs.writeFileSync(p,JSON.stringify(s,null,4));}"
-
-if exist "%LOCALAPPDATA%\Discord\Update.exe" start "" "%LOCALAPPDATA%\Discord\Update.exe" --processStart Discord.exe
-
-echo.
-echo  LISTO. Discord se esta abriendo.
-echo  Si el plugin no sale activado: Ajustes, Vencord, Plugins, IndividualStreams.
-echo  Para actualizar en el futuro, vuelve a ejecutar este archivo.
-echo  No borres la carpeta %VENCORD_DEST%
-goto :fin
-
-:error
-echo.
-echo  Algo ha fallado. Haz una captura de esta ventana y enviasela a anxo0.
-
-:fin
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s = [IO.File]::ReadAllText('%~f0'); Invoke-Expression $s.Substring($s.LastIndexOf('#INICIO' + '_POWERSHELL#'))"
 echo.
 pause
-endlocal
+exit /b
+
+#INICIO_POWERSHELL#
+$ErrorActionPreference = "Stop"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+$repo = if ($env:IS_REPO) { $env:IS_REPO } else { "anxo0/IndividualStreams" }
+$dest = if ($env:IS_DEST) { $env:IS_DEST } else { Join-Path $env:APPDATA "IndividualStreams" }
+$dist = Join-Path $dest "dist"
+$headers = @{ "User-Agent" = "IndividualStreams-Instalador" }
+
+Write-Host ""
+Write-Host " === Instalador de IndividualStreams (por anxo0) ==="
+Write-Host ""
+
+try {
+    Write-Host " Descargando la ultima version..."
+    New-Item -ItemType Directory -Force $dist | Out-Null
+    $release = Invoke-RestMethod -Headers $headers "https://api.github.com/repos/$repo/releases/latest"
+
+    foreach ($name in "patcher.js", "preload.js", "renderer.js", "renderer.css") {
+        $asset = $release.assets | Where-Object { $_.name -eq $name }
+        if (-not $asset) { throw "La version publicada no tiene el archivo $name" }
+        Invoke-WebRequest -UseBasicParsing -Headers $headers $asset.browser_download_url -OutFile (Join-Path $dist $name)
+    }
+    [IO.File]::WriteAllText((Join-Path $dist "package.json"), "{}")
+    Write-Host " Version descargada: $($release.name)"
+
+    if ($env:IS_SOLO_DESCARGAR) {
+        Write-Host " Descargado. No se toca Discord."
+        return
+    }
+
+    Write-Host " Descargando el instalador oficial de Vencord..."
+    $cli = Join-Path $dest "VencordInstallerCli.exe"
+    Invoke-WebRequest -UseBasicParsing -Headers $headers "https://github.com/Vencord/Installer/releases/latest/download/VencordInstallerCli.exe" -OutFile $cli
+
+    Write-Host ""
+    Write-Host " Ahora se va a cerrar Discord para instalar el plugin."
+    Read-Host " Pulsa Enter para continuar" | Out-Null
+
+    Get-Process Discord -ErrorAction SilentlyContinue | Stop-Process -Force
+    Start-Sleep -Seconds 2
+
+    $env:VENCORD_USER_DATA_DIR = $dest
+    $env:VENCORD_DEV_INSTALL = "1"
+    & $cli --install -branch stable
+    if ($LASTEXITCODE -ne 0) { throw "El instalador de Vencord ha fallado" }
+
+    $updater = Join-Path $env:LOCALAPPDATA "Discord\Update.exe"
+    if (Test-Path $updater) { Start-Process $updater -ArgumentList "--processStart", "Discord.exe" }
+
+    Write-Host ""
+    Write-Host " LISTO. Discord se esta abriendo con IndividualStreams activado."
+    Write-Host " A partir de ahora se actualiza solo desde Discord."
+    Write-Host " No borres la carpeta $dest"
+}
+catch {
+    Write-Host ""
+    Write-Host " Algo ha fallado: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host " Haz una captura de esta ventana y enviasela a anxo0."
+}

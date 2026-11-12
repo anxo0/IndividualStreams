@@ -7,36 +7,27 @@
 import { NavContextMenuPatchCallback } from "@api/ContextMenu";
 import ErrorBoundary from "@components/ErrorBoundary";
 import definePlugin from "@utils/types";
-import { findComponentByCodeLazy, findStoreLazy } from "@webpack";
-import { ApplicationStreamingStore, FluxDispatcher, Menu, PopoutWindowStore, showToast, Tooltip, UserStore, useState } from "@webpack/common";
+import { findByPropsLazy, findComponentByCodeLazy, findExportedComponentLazy, findStoreLazy } from "@webpack";
+import { ApplicationStreamingStore, FluxDispatcher, Menu, PopoutWindowStore, React, showToast, UserStore } from "@webpack/common";
 
 const ChannelRTCStore = findStoreLazy("ChannelRTCStore");
 const VolumeControl = findComponentByCodeLazy("currentVolume:", "sliderClassName:");
+const WindowLaunchIconModule = findByPropsLazy("WindowLaunchIcon");
+const FullscreenEnterIcon = findExportedComponentLazy("FullscreenEnterIcon");
 
 const PARTICIPANT_TYPE_STREAM = 0;
-const ICON_SIZES: Record<string, number> = { xxs: 12, xs: 16, sm: 18, md: 24, lg: 32 };
 
-function iconSize(size: unknown) {
-    return typeof size === "number" ? size : ICON_SIZES[size as string] ?? 20;
-}
+// El mismo icono de "Abrir en ventana" de Discord, con un 1 dentro
+function IndividualIcon(props: any) {
+    const icon = WindowLaunchIconModule.WindowLaunchIcon(props);
+    const [firstPath] = React.Children.toArray(icon.props.children) as React.ReactElement<any>[];
 
-function IndividualIcon({ size, className }: { size?: unknown; className?: string; }) {
-    const px = iconSize(size);
-    return (
-        <svg className={className} width={px} height={px} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M15 3h6v6h-2V6.4l-6.3 6.3-1.4-1.4L17.6 5H15z" />
-            <path d="M5 5h7v2H5v12h12v-7h2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" />
-            <path d="M8.9 11.6h1.9V18H9v-4.5l-1.3.5v-1.6z" />
-        </svg>
-    );
-}
-
-function FullscreenIcon({ size, className }: { size?: unknown; className?: string; }) {
-    const px = iconSize(size);
-    return (
-        <svg className={className} width={px} height={px} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z" />
-        </svg>
+    return React.cloneElement(icon, undefined, icon.props.children,
+        <path
+            fill={firstPath.props.fill}
+            className={firstPath.props.className}
+            d="M12 9.5V18h-2v-5.9l-1.6 1-1-1.7 2.9-1.9z"
+        />
     );
 }
 
@@ -69,35 +60,17 @@ function toggleFullscreen(e: React.MouseEvent) {
     else doc.getElementById("app-mount")?.requestFullscreen();
 }
 
-const BarButton = ErrorBoundary.wrap(({ channelId, participantId, className }: { channelId: string; participantId: string; className?: string; }) => {
-    const [hovered, setHovered] = useState(false);
-
-    return (
-        <Tooltip text="Abrir individual">
-            {tooltipProps => (
-                <button
-                    {...tooltipProps}
-                    className={className}
-                    aria-label="Abrir individual"
-                    style={{
-                        display: "flex",
-                        padding: 4,
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "#fff",
-                        opacity: hovered ? 1 : 0.8
-                    }}
-                    onMouseEnter={() => { tooltipProps.onMouseEnter(); setHovered(true); }}
-                    onMouseLeave={() => { tooltipProps.onMouseLeave(); setHovered(false); }}
-                    onClick={() => openParticipant(channelId, participantId)}
-                >
-                    <IndividualIcon size={24} />
-                </button>
-            )}
-        </Tooltip>
-    );
-}, { noop: true });
+// Reutiliza el botón de "Abrir en ventana" de Discord cambiándole solo el icono y el texto
+const BarButton = ErrorBoundary.wrap(({ PopoutButton, channelId, participantId, ...rest }: any) => (
+    <PopoutButton
+        {...rest}
+        popoutOpen={false}
+        onOpenPopout={() => openParticipant(channelId, participantId)}
+        onClosePopout={() => { }}
+        label="Abrir individual"
+        iconComponent={IndividualIcon}
+    />
+), { noop: true });
 
 const PopoutVolume = ErrorBoundary.wrap(({ channelId, participantId }: { channelId: string; participantId: string; }) => {
     const participant = ChannelRTCStore.getParticipant(channelId, participantId);
@@ -140,14 +113,15 @@ export default definePlugin({
     name: "IndividualStreams",
     description: "Abre cada transmisión en su propia ventana para repartirlas entre varias pantallas",
     authors: [{ name: "anxo0", id: 423152530235850753n }],
+    enabledByDefault: true,
 
     patches: [
         {
             // Barra de controles de la llamada: botón junto al de "Abrir en ventana"
             find: "renderBottomRight=()=>",
             replacement: {
-                match: /\i\?\(0,\i\.jsx\)\(\i\.\i,\{themeable:\i,popoutOpen:this\.popoutOpen,className:(\i\.\i),/,
-                replace: "$self.renderBarButton(this.props,$1),$&"
+                match: /\i\?\(0,\i\.jsx\)\((\i\.\i),\{themeable:(\i),popoutOpen:this\.popoutOpen,className:(\i\.\i),/,
+                replace: "$self.renderBarButton(this.props,{PopoutButton:$1,themeable:$2,className:$3}),$&"
             }
         },
         {
@@ -160,12 +134,12 @@ export default definePlugin({
         }
     ],
 
-    renderBarButton(props: any, className?: string) {
+    renderBarButton(props: any, buttonProps: any) {
         try {
             const { channel, selectedParticipant } = props;
             if (!channel || selectedParticipant?.type !== PARTICIPANT_TYPE_STREAM) return null;
 
-            return <BarButton key="vc-individual-stream" channelId={channel.id} participantId={selectedParticipant.id} className={className} />;
+            return <BarButton key="vc-individual-stream" {...buttonProps} channelId={channel.id} participantId={selectedParticipant.id} />;
         } catch {
             return null;
         }
@@ -177,7 +151,7 @@ export default definePlugin({
                 <PopoutVolume key="vc-individual-volume" channelId={channelId} participantId={participantId} />,
                 <TileButton
                     key="vc-individual-fullscreen"
-                    icon={FullscreenIcon}
+                    icon={FullscreenEnterIcon}
                     tooltipText="Pantalla completa"
                     hideWhenInactive={false}
                     idle={idle}

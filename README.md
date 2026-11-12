@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.png" width="120" alt="Logo de anxo0">
+  <img src="icono.png" width="120" alt="Logo de IndividualStreams">
 </p>
 
 # IndividualStreams
@@ -8,11 +8,9 @@ Plugin para [Vencord](https://vencord.dev) que abre cada transmisión de Discord
 
 Discord solo deja sacar todas las transmisiones juntas en una misma ventana. Con este plugin puedes tener, por ejemplo, la de un amigo en grande en una pantalla y la de otro en la otra.
 
-Hecho por **anxo0**.
-
 ## Qué añade
 
-- **Botón "Abrir individual"** (icono de ventana con un 1) en la barra de controles, al lado de "Abrir en ventana", cuando tienes una transmisión en grande.
+- **Botón "Abrir individual"** en la barra de controles, al lado de "Abrir en ventana", con el mismo icono pero con un 1.
 - **"Abrir individual"** en el menú de clic derecho de una transmisión o de quien está transmitiendo.
 - En la ventana individual: **control de volumen** y **pantalla completa**.
 
@@ -20,18 +18,17 @@ Puedes abrir tantas transmisiones individuales como quieras. Al cerrar una venta
 
 ## Instalación (Windows)
 
-1. Descarga el [zip del plugin](https://github.com/anxo0/IndividualStreams/archive/refs/heads/main.zip) y descomprímelo entero.
-2. Haz doble clic en `instalar.bat`.
-3. Si te dice que cierres la ventana y lo vuelvas a ejecutar, hazlo (pasa la primera vez, cuando instala Git y Node.js).
-4. Cuando avise, pulsa una tecla: cierra Discord, instala el plugin, lo activa y vuelve a abrir Discord.
+1. Descarga el **[instalador](https://github.com/anxo0/IndividualStreams/releases/latest/download/instalar.bat)**.
+2. Haz doble clic en `instalar.bat`. Si Windows avisa de que es un archivo desconocido, pulsa "Más información" y "Ejecutar de todas formas".
+3. Cuando lo pida, pulsa Enter: cierra Discord, instala el plugin y vuelve a abrir Discord.
 
-Sirve aunque ya tengas Vencord: tus ajustes y plugins se conservan.
+No hace falta instalar nada más ni compilar. Sirve aunque ya tengas Vencord: tus ajustes y plugins se conservan.
 
-## Actualizar
+## Actualizaciones
 
-Vuelve a hacer doble clic en `instalar.bat`. Siempre descarga la última versión de este repositorio.
+Se actualiza solo: Vencord comprueba este repositorio y descarga las versiones nuevas desde Discord.
 
-Hazlo también si el plugin deja de funcionar tras una actualización de Discord.
+Si algún día deja de funcionar, vuelve a ejecutar `instalar.bat`.
 
 ## Uso
 
@@ -39,8 +36,15 @@ Dentro de una llamada, ponte a ver una transmisión y pulsa el botón con el 1 d
 
 ## A tener en cuenta
 
-- No borres la carpeta `VencordIndividualStreams` de tu carpeta de usuario: Discord carga Vencord desde ahí.
+- No borres la carpeta `%APPDATA%\IndividualStreams`: Discord carga Vencord desde ahí.
 - Los plugins de terceros no los revisa el equipo de Vencord. Úsalo bajo tu responsabilidad.
+
+## Autor
+
+<img src="logo.png" width="40" alt="Logo de anxo0" align="left">
+
+Hecho por **anxo0**.
+<br clear="left">
 
 ## Licencia
 
