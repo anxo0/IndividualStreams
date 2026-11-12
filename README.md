@@ -23,11 +23,11 @@ Puedes abrir tantas transmisiones individuales como quieras. Al cerrar una venta
 ## Instalación (Windows)
 
 1. Entra en la **[última versión](https://github.com/anxo0/IndividualStreams/releases/latest)** y descarga `IndividualStreams-Installer-v….exe`.
-2. Ábrelo y sigue el asistente. Si Windows avisa de que es una aplicación desconocida, pulsa "Más información" y "Ejecutar de todas formas".
+2. Ábrelo y pulsa Instalar. Si Windows avisa de que es una aplicación desconocida, pulsa "Más información" y "Ejecutar de todas formas".
 
-El instalador cierra Discord, instala el plugin y lo vuelve a abrir. No hace falta instalar nada más ni compilar, y sirve aunque ya tengas Vencord: tus ajustes y plugins se conservan.
+El instalador cierra Discord, pone Vencord con el plugin y lo vuelve a abrir. No se instala nada en Windows: los archivos van a la carpeta normal de Vencord. Sirve aunque ya tengas Vencord: tus ajustes y plugins se conservan.
 
-Para quitarlo, desinstálalo desde Aplicaciones de Windows. Discord se queda con Vencord normal.
+Para dejar de usarlo, desactívalo en Ajustes, Vencord, Plugins, como cualquier otro. Para volver al Vencord oficial, ejecuta su instalador.
 
 ## Actualizaciones
 
@@ -41,7 +41,7 @@ Dentro de una llamada, ponte a ver una transmisión y pulsa el botón con el 1 d
 
 ## A tener en cuenta
 
-- No borres la carpeta `%APPDATA%\IndividualStreams`: Discord carga Vencord desde ahí.
+- Si ejecutas el instalador oficial de Vencord, sustituirá a este y el plugin desaparecerá. Para recuperarlo, vuelve a ejecutar el de IndividualStreams.
 - Los plugins de terceros no los revisa el equipo de Vencord. Úsalo bajo tu responsabilidad.
 
 ## Autor

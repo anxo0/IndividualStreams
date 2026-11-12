@@ -1,6 +1,6 @@
 ﻿; Instalador de IndividualStreams, por anxo0
 ; Se compila en GitHub al publicar una version:
-;   ISCC.exe /DMyVersion=1.1.1 /DDistDir=<carpeta dist de Vencord> /DCliPath=<VencordInstallerCli.exe> IndividualStreams.iss
+;   ISCC.exe /DMyVersion=1.1.2 /DDistDir=<carpeta dist de Vencord> /DCliPath=<VencordInstallerCli.exe> IndividualStreams.iss
 ; Las pantallas salen de diseno\index.html: tras cambiarlo, ejecuta diseno\construir.ps1.
 ; Para probarlo sin tocar Discord: /NODISCORD=1. Para que recorra las pantallas solo: /DEMO=1
 ;
@@ -28,7 +28,10 @@ AppPublisher=anxo0
 AppPublisherURL=https://github.com/anxo0/IndividualStreams
 AppSupportURL=https://github.com/anxo0/IndividualStreams/issues
 AppUpdatesURL=https://github.com/anxo0/IndividualStreams/releases
-DefaultDirName={userappdata}\IndividualStreams
+; Va a la carpeta normal de Vencord y no se registra en Windows: es un plugin, no una aplicacion
+DefaultDirName={userappdata}\Vencord
+UsePreviousAppDir=no
+Uninstallable=no
 DisableDirPage=yes
 DisableProgramGroupPage=yes
 DisableReadyPage=yes
@@ -37,8 +40,6 @@ PrivilegesRequired=lowest
 OutputDir=salida
 OutputBaseFilename=IndividualStreams-Installer-v{#MyVersion}
 SetupIconFile=icono.ico
-UninstallDisplayIcon={app}\icono.ico
-UninstallDisplayName=IndividualStreams
 WizardStyle=modern dark
 WizardBackColor=#000000
 Compression=lzma2/max
@@ -53,22 +54,15 @@ Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
 SetupWindowTitle=Instalar IndividualStreams
 StatusExtractFiles=Copiando archivos
 StatusRunProgram=Terminando
-ConfirmUninstall=¿Quieres quitar IndividualStreams?%n%nDiscord se cerrará y se quedará con Vencord normal, sin este plugin.
 
 [Files]
 Source: "piezas\*.bmp"; Flags: dontcopy
+Source: "{#CliPath}"; DestName: "VencordInstallerCli.exe"; Flags: dontcopy
 Source: "{#DistDir}\patcher.js"; DestDir: "{app}\dist"; Flags: ignoreversion
 Source: "{#DistDir}\preload.js"; DestDir: "{app}\dist"; Flags: ignoreversion
 Source: "{#DistDir}\renderer.js"; DestDir: "{app}\dist"; Flags: ignoreversion
 Source: "{#DistDir}\renderer.css"; DestDir: "{app}\dist"; Flags: ignoreversion
 Source: "dist-package.json"; DestDir: "{app}\dist"; DestName: "package.json"; Flags: ignoreversion
-Source: "{#CliPath}"; DestDir: "{app}"; DestName: "VencordInstallerCli.exe"; Flags: ignoreversion
-Source: "icono.ico"; DestDir: "{app}"; Flags: ignoreversion
-Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
-
-[UninstallDelete]
-; Archivos que el actualizador de Vencord pueda haber reescrito
-Type: filesandordirs; Name: "{app}\dist"
 
 [Run]
 Filename: "{localappdata}\Discord\Update.exe"; Parameters: "--processStart Discord.exe"; Description: "Abrir Discord ahora"; Flags: postinstall nowait skipifsilent; Check: PuedeAbrirDiscord
@@ -429,18 +423,38 @@ begin
   Sleep(1500);
 end;
 
-// Con ConPlugin = True apunta Discord a nuestros archivos; si no, instala el Vencord oficial
-function EjecutarVencord(ConPlugin: Boolean; Argumentos: String): Integer;
+// Apunta Discord a la carpeta de Vencord, donde ya estan nuestros archivos.
+// El instalador oficial de Vencord se usa desde la carpeta temporal y se borra al terminar.
+function ParchearDiscord: Integer;
 var
   Cli, Params: String;
 begin
-  Cli := ExpandConstant('{app}\VencordInstallerCli.exe');
-  Params := '/c ';
-  if ConPlugin then
-    Params := Params + 'set "VENCORD_USER_DATA_DIR=' + ExpandConstant('{app}') + '" && set "VENCORD_DEV_INSTALL=1" && ';
-  Params := Params + '"' + Cli + '" ' + Argumentos;
+  ExtractTemporaryFile('VencordInstallerCli.exe');
+  Cli := ExpandConstant('{tmp}\VencordInstallerCli.exe');
+  Params := '/c set "VENCORD_USER_DATA_DIR=' + ExpandConstant('{app}') + '" && set "VENCORD_DEV_INSTALL=1" && "' + Cli + '" -install -branch stable';
   if not Exec(ExpandConstant('{cmd}'), Params, '', SW_HIDE, ewWaitUntilTerminated, Result) then
     Result := -1;
+end;
+
+// La v1.1.1 se instalaba como aplicacion en su propia carpeta: se quita su entrada y sus archivos.
+// Su desinstalador con /NODISCORD=1 no toca Discord, que se parchea despues a la carpeta nueva.
+procedure QuitarVersionAntigua;
+var
+  Desinstalador: String;
+  Codigo: Integer;
+begin
+  if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{6F2C1E8A-4B7D-4E31-9A55-2D8C3F1B7E40}_is1', 'UninstallString', Desinstalador) then
+    Exec(RemoveQuotes(Desinstalador), '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /NODISCORD=1', '', SW_HIDE, ewWaitUntilTerminated, Codigo);
+end;
+
+// Por si la entrada ya no estaba: la carpeta antigua solo se borra si es la de nuestro instalador
+procedure BorrarCarpetaAntigua;
+var
+  Antigua: String;
+begin
+  Antigua := ExpandConstant('{userappdata}\IndividualStreams');
+  if FileExists(Antigua + '\VencordInstallerCli.exe') and FileExists(Antigua + '\dist\patcher.js') then
+    DelTree(Antigua, True, True, True);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -449,22 +463,16 @@ begin
     Exit;
 
   if CurStep = ssInstall then
-    CerrarDiscord
+  begin
+    CerrarDiscord;
+    QuitarVersionAntigua;
+  end
   else if CurStep = ssPostInstall then
   begin
     WizardForm.StatusLabel.Caption := 'Instalando el plugin en Discord';
-    if EjecutarVencord(True, '-install -branch stable') <> 0 then
-      SuppressibleMsgBox('No se ha podido instalar en Discord. Comprueba que tienes Discord instalado y vuelve a ejecutar el instalador.', mbError, MB_OK, IDOK);
+    if ParchearDiscord <> 0 then
+      SuppressibleMsgBox('No se ha podido instalar en Discord. Comprueba que tienes Discord instalado y vuelve a ejecutar el instalador.', mbError, MB_OK, IDOK)
+    else
+      BorrarCarpetaAntigua;
   end;
-end;
-
-procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
-begin
-  if (CurUninstallStep <> usUninstall) or ModoPrueba then
-    Exit;
-
-  CerrarDiscord;
-  // Deja Vencord normal; si no se puede descargar, quita el mod para que Discord no se rompa
-  if EjecutarVencord(False, '-install -branch stable') <> 0 then
-    EjecutarVencord(False, '-uninstall -branch stable');
 end;
