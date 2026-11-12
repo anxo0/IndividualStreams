@@ -224,6 +224,8 @@ const PopoutVolume = ErrorBoundary.wrap(({ userId, idle, TileButton, hideWhenIna
     return (
         <div
             style={{ position: "relative", display: "flex", pointerEvents: "auto" }}
+            role="group"
+            aria-label={muted ? "Volumen de la transmisión, silenciada" : "Volumen de la transmisión"}
             onMouseEnter={show}
             onMouseLeave={hide}
             onClick={e => e.stopPropagation()}
@@ -241,8 +243,9 @@ const PopoutVolume = ErrorBoundary.wrap(({ userId, idle, TileButton, hideWhenIna
             )}
             <TileButton
                 icon={Icon}
-                // Sin aviso mientras el deslizador está abierto: se pondría encima y lo taparía
-                tooltipText={open ? null : muted ? "Activar sonido" : "Silenciar"}
+                // Sin el aviso de Discord: taparía el deslizador y, al cambiarle el texto, se quedaba fijo.
+                // Al pasar el ratón ya sale el deslizador, que dice por sí solo para qué es el botón.
+                tooltipText={null}
                 hideWhenInactive={hideWhenInactive && !open}
                 idle={idle}
                 onClick={(e: React.MouseEvent<HTMLElement>) => {
