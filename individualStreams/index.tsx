@@ -8,7 +8,7 @@ import { NavContextMenuPatchCallback } from "@api/ContextMenu";
 import ErrorBoundary from "@components/ErrorBoundary";
 import definePlugin from "@utils/types";
 import { findByPropsLazy, findExportedComponentLazy, findStoreLazy } from "@webpack";
-import { ApplicationStreamingStore, FluxDispatcher, MediaEngineStore, Menu, React, showToast, UserStore, useStateFromStores } from "@webpack/common";
+import { ApplicationStreamingStore, FluxDispatcher, MediaEngineStore, Menu, PopoutWindowStore, React, showToast, UserStore, useStateFromStores } from "@webpack/common";
 
 const ChannelRTCStore = findStoreLazy("ChannelRTCStore");
 const AudioActions = findByPropsLazy("toggleLocalMute", "setLocalVolume");
@@ -55,6 +55,82 @@ function openIndividual(ownerId: string) {
     }
 
     openParticipant(stream.channelId, participant.id);
+}
+
+// Lleva la ventana individual al punto de la pantalla donde se soltó la transmisión
+function moveWindowTo(channelId: string, participantId: string, screenX: number, screenY: number) {
+    const key = `DISCORD_CALL_TILE_POPOUT_${channelId}_${participantId}`;
+    const startedAt = Date.now();
+
+    const tryMove = () => {
+        const win = PopoutWindowStore.getWindow(key);
+        if (win && win.outerWidth > 0) {
+            try { win.moveTo(Math.round(screenX - win.outerWidth / 2), Math.round(screenY - 16)); } catch { }
+            return;
+        }
+        if (Date.now() - startedAt < 3000) setTimeout(tryMove, 50);
+    };
+    tryMove();
+}
+
+const DRAG_THRESHOLD = 8;
+
+// Arrastrar una transmisión fuera de su recuadro la abre en ventana individual donde se suelte
+function startTileDrag(e: React.MouseEvent, participant: any) {
+    const channelId = participant.stream?.channelId;
+    const tile = e.currentTarget as HTMLElement;
+    const doc = tile.ownerDocument;
+    // Solo en la cuadrícula de la llamada, no dentro de las ventanas que ya están fuera
+    if (e.button !== 0 || !channelId || doc !== document) return;
+
+    const startX = e.clientX, startY = e.clientY;
+    let ghost: HTMLDivElement | null = null;
+
+    const isOutsideTile = (ev: MouseEvent) => {
+        const r = tile.getBoundingClientRect();
+        return ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom;
+    };
+
+    const onMove = (ev: MouseEvent) => {
+        if (!ghost) {
+            if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
+            ghost = doc.createElement("div");
+            ghost.textContent = "Suelta para abrir individual";
+            Object.assign(ghost.style, {
+                position: "fixed", zIndex: "10000", pointerEvents: "none", padding: "8px 12px", borderRadius: "8px",
+                background: "rgba(17, 18, 20, 0.92)", color: "#fff", font: "600 14px var(--font-primary, sans-serif)",
+                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)", whiteSpace: "nowrap", transition: "opacity 120ms"
+            });
+            doc.body.appendChild(ghost);
+            doc.documentElement.style.cursor = "grabbing";
+        }
+        ev.preventDefault();
+        ghost.style.left = `${ev.clientX + 14}px`;
+        ghost.style.top = `${ev.clientY + 14}px`;
+        // Dentro de su propio recuadro no se abre nada al soltar
+        ghost.style.opacity = isOutsideTile(ev) ? "1" : "0.45";
+    };
+
+    const onUp = (ev: MouseEvent) => {
+        doc.removeEventListener("mousemove", onMove, true);
+        doc.removeEventListener("mouseup", onUp, true);
+        if (!ghost) return;
+
+        ghost.remove();
+        doc.documentElement.style.cursor = "";
+        if (!isOutsideTile(ev)) return;
+
+        // El clic que sigue al soltar no debe cambiar la transmisión enfocada
+        const swallowClick = (c: MouseEvent) => { c.stopPropagation(); c.preventDefault(); };
+        doc.addEventListener("click", swallowClick, { capture: true, once: true });
+        setTimeout(() => doc.removeEventListener("click", swallowClick, true), 0);
+
+        openParticipant(channelId, participant.id);
+        moveWindowTo(channelId, participant.id, ev.screenX, ev.screenY);
+    };
+
+    doc.addEventListener("mousemove", onMove, true);
+    doc.addEventListener("mouseup", onUp, true);
 }
 
 function toggleFullscreen(e: React.MouseEvent) {
@@ -123,7 +199,7 @@ function VolumeSlider({ value, onChange }: { value: number; onChange(value: numb
     );
 }
 
-const PopoutVolume = ErrorBoundary.wrap(({ userId, idle, TileButton }: { userId: string; idle: boolean; TileButton: any; }) => {
+const PopoutVolume = ErrorBoundary.wrap(({ userId, idle, TileButton, hideWhenInactive = false }: { userId: string; idle: boolean; TileButton: any; hideWhenInactive?: boolean; }) => {
     const [open, setOpen] = React.useState(false);
     const closeTimer = React.useRef<any>(null);
 
@@ -152,6 +228,8 @@ const PopoutVolume = ErrorBoundary.wrap(({ userId, idle, TileButton }: { userId:
             onMouseLeave={hide}
             onClick={e => e.stopPropagation()}
             onDoubleClick={e => e.stopPropagation()}
+            // En la cuadrícula, que tocar el volumen no empiece a arrastrar la transmisión
+            onMouseDown={e => e.stopPropagation()}
             onWheel={e => setVolume(shown + (e.deltaY < 0 ? 5 : -5))}
         >
             {open && !idle && (
@@ -165,7 +243,7 @@ const PopoutVolume = ErrorBoundary.wrap(({ userId, idle, TileButton }: { userId:
                 icon={Icon}
                 // Sin aviso mientras el deslizador está abierto: se pondría encima y lo taparía
                 tooltipText={open ? null : muted ? "Activar sonido" : "Silenciar"}
-                hideWhenInactive={false}
+                hideWhenInactive={hideWhenInactive && !open}
                 idle={idle}
                 onClick={() => AudioActions.toggleLocalMute(userId, "stream")}
             />
@@ -210,10 +288,22 @@ export default definePlugin({
         {
             // Ventana individual: volumen y pantalla completa junto a los botones que ya trae
             find: '"stay-on-top"',
-            replacement: {
-                match: /(\i)\.push\(\(0,\i\.jsx\)\(\i,\{channelId:(\i)\.id,participantId:(\i),hideWhenInactive:!1,idle:(\i)\},"stay-on-top"\)\),\i\.push\(\(0,\i\.jsx\)\((\i),\{/,
-                replace: "$self.pushPopoutControls($1,{channelId:$2.id,participantId:$3,idle:$4,TileButton:$5}),$&"
-            }
+            replacement: [
+                {
+                    match: /(\i)\.push\(\(0,\i\.jsx\)\(\i,\{channelId:(\i)\.id,participantId:(\i),hideWhenInactive:!1,idle:(\i)\},"stay-on-top"\)\),\i\.push\(\(0,\i\.jsx\)\((\i),\{/,
+                    replace: "$self.pushPopoutControls($1,{channelId:$2.id,participantId:$3,idle:$4,TileButton:$5}),$&"
+                },
+                {
+                    // Recuadro de la cuadrícula: arrastrar una transmisión fuera la abre en ventana individual
+                    match: /(onContextMenu:\i=>\i\(\i,(\i)\.type===\i\.\i\.STREAM\),onClick:\i,onMouseDown:)(\i),/,
+                    replace: "$1$self.tileMouseDown($2,$3),"
+                },
+                {
+                    // Recuadro de la cuadrícula: el botón de silenciar de Discord pasa a ser nuestro volumen con deslizador
+                    match: /(participantUserId:(\i),[\s\S]{0,4000}?)(\i)&&(\i)\.push\(\(0,\i\.jsx\)\((\i),\{onClick:\i,tooltipText:[^}]{0,200}?hideWhenInactive:([^,]+),idle:(\i)\},"mute"\)\)/,
+                    replace: "$1$3&&$4.push($self.renderTileVolume({userId:$2,TileButton:$5,hideWhenInactive:$6,idle:$7}))"
+                }
+            ]
         }
     ],
 
@@ -226,6 +316,19 @@ export default definePlugin({
         } catch {
             return null;
         }
+    },
+
+    renderTileVolume({ userId, TileButton, hideWhenInactive, idle }: any) {
+        return <PopoutVolume key="mute" userId={userId} TileButton={TileButton} hideWhenInactive={hideWhenInactive} idle={idle} />;
+    },
+
+    tileMouseDown(participant: any, original?: (e: React.MouseEvent) => void) {
+        return (e: React.MouseEvent) => {
+            original?.(e);
+            try {
+                if (participant?.type === PARTICIPANT_TYPE_STREAM) startTileDrag(e, participant);
+            } catch { }
+        };
     },
 
     pushPopoutControls(buttons: React.ReactNode[], { channelId, participantId, idle, TileButton }: any) {

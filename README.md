@@ -16,7 +16,9 @@ Discord solo deja sacar todas las transmisiones juntas en una misma ventana. Con
 
 - **Botón "Abrir individual"** en la barra de controles, al lado de "Abrir en ventana", con el mismo icono pero con un 1.
 - **"Abrir individual"** en el menú de clic derecho de una transmisión o de quien está transmitiendo.
+- **Arrastrar para sacar:** arrastra una transmisión fuera de su recuadro en la cuadrícula y se abre en ventana individual donde la sueltes.
 - En la ventana individual: **control de volumen** y **pantalla completa**.
+- En la cuadrícula: **volumen con deslizador** en cada transmisión, en lugar de solo silenciar.
 
 Puedes abrir tantas transmisiones individuales como quieras. Al cerrar una ventana, la transmisión vuelve a la llamada.
 
@@ -39,7 +41,7 @@ Si algún día deja de funcionar, vuelve a ejecutar el instalador.
 
 ## Uso
 
-Dentro de una llamada, ponte a ver una transmisión y pulsa el botón con el 1 de la barra de controles, o haz clic derecho sobre ella y elige "Abrir individual". Repite con cada transmisión y arrastra cada ventana a la pantalla que quieras.
+Dentro de una llamada, ponte a ver una transmisión y pulsa el botón con el 1 de la barra de controles, o haz clic derecho sobre ella y elige "Abrir individual". También puedes arrastrarla desde la cuadrícula y soltarla donde quieras la ventana. Repite con cada transmisión y arrastra cada ventana a la pantalla que quieras.
 
 ## A tener en cuenta
 
